@@ -4,3 +4,9 @@ target
 .env
 .env.*
 !.env.example
+.idea/
+
+# Python virtual environment and generated files
+.venv/
+__pycache__/
+*.pyc
