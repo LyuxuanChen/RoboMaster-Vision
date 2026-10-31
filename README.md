@@ -1,39 +1,127 @@
-# lyf 的第三次求助
+# RoboMaster Vision
 
-[中文](README.md) · [English](README.en.md)
+Python implementation of the **armour detection and pose estimation** route of the
+[HerKules vision assignment](https://training.herkules.dev/learn/vision-assignment).
+Development uses PyCharm, a project virtual environment and CPU inference.
 
-## 云台能动了，然后呢？
+The current implementation reads a selected frame, prepares it for the supplied ONNX
+model, decodes predictions, restores corner coordinates and removes duplicates with
+non-maximum suppression (NMS). **PnP, 3D corner estimation and full-video JSONL export
+are still to be implemented.**
 
-在[控制组的作业](https://github.com/HKUAstar/control-training-template)中，
-lyf 把 yaw、pitch 云台教具交给了控制组。这次我们假设他们已经完成程序：
-云台可以回正、跟随目标角度，也能在调试时停止输出。
+## Setup
 
-看到云台终于不再反复点头，lyf 松了一口气：“现在能不能让它自己盯着目标转？”
+Developed with Python 3.11 on macOS. Run from the repository root:
 
-控制组也想试试。他们留出了目标角度接口，准备接上视觉系统。
-但视觉组还得回答两个问题：相机画面里的哪一块是装甲板？
-就算知道它现在在哪里，等弹丸飞过去，它又会转到哪里？
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r detection/requirements.txt
+```
 
-这一次，你负责实现视觉链路中的一段。为了让你能在自己的电脑上独立完成，
-我们提供录像、模型、标定和瞄准仿真器。本次不需要真实教具、相机、电机或控制板，
-也不要求与控制组固件通信。故事中的联调只是背景，不是额外的硬件任务。
+If the environment already exists, reuse it rather than recreating it. In PyCharm,
+select `.venv/bin/python` as the project interpreter.
+The main packages are NumPy, OpenCV, ONNX Runtime and PyYAML; exact installed versions
+are in `detection/requirements.txt`.
 
-## 两条路线，任选其一
+The supplied assets should be present in `detection/assets/`:
 
-**只需完成检测或瞄准中的一项，不要求两项都做。两条路线互不依赖。**
+```text
+0526.onnx
+small.mp4
+large.mp4
+calibration.yaml
+```
 
-| 路线 | 你负责什么 | 已提供什么 | 从哪里开始 |
-| --- | --- | --- | --- |
-| 检测 | 从视频检测装甲板，用 PnP 恢复三维角点，导出 JSONL | 预训练模型、比赛片段、相机标定 | [detection/README.md](detection/README.md) |
-| 瞄准 | 根据延迟送达的目标状态预测装甲板位置，决定瞄准角和开火时机 | 精确的历史观测、弹道工具、3D 仿真、MCAP 回放 | [aiming/README.md](aiming/README.md) |
+## Run the current detector
 
-检测路线语言不限，推荐 Python、C++ 或 Rust，不需要训练模型。
-瞄准路线使用 Rust，不需要实现检测器、跟踪器或状态估计。
-两者都允许使用参考资料和 AI 工具，但你需要能够解释自己的实现并定位问题。
+These commands assume the project environment is active and the terminal is at the
+repository root.
 
-## 开始与提交
+Display the first frame of the small video with detections after NMS:
 
-1. 打开[作业模板](https://github.com/HKUAstar/vision-training-assignment)，点击
-   **Use this template → Create a new repository**，在自己的账号下创建作业仓库。
-2. Clone 自己的仓库，选择检测或瞄准路线，按对应 README 完成作业。
-3. 将完成的代码 commit 并 push 到自己的仓库，然后提交该仓库的 **GitHub URL**。
+```bash
+python detection/nms_frame.py
+```
+
+Inspect the other video or a different frame:
+
+```bash
+python detection/nms_frame.py --video detection/assets/large.mp4
+python detection/nms_frame.py --frame-index 180
+```
+
+Print results without opening a window:
+
+```bash
+python detection/nms_frame.py --no-display
+```
+
+Frame indices start at zero. Click the image window and press any key to close it.
+Each run processes only the selected frame and does not yet write a JSONL file.
+
+The checked result for the first frame of `small.mp4` is:
+
+```text
+Raw candidates: 25200
+After confidence filtering (0.5): 19
+After NMS (IoU threshold 0.5): 2
+Row 16601: red 3 0.9539
+Row 3414: red 4 0.8658
+```
+
+These are model predictions on a sample frame, not ground-truth accuracy measurements.
+
+## Learning checkpoints
+
+Earlier scripts are retained to show how the implementation developed:
+
+| Script in `detection/` | Purpose |
+| --- | --- |
+| `inspect_model.py` | Load the model and inspect tensor metadata |
+| `inspect_video.py` | Read video properties and display the first frame |
+| `preprocess_frame.py` | Resize, pad, convert colours and prepare model input |
+| `infer_frame.py` | Run inference and inspect the highest-objectness candidate |
+| `decode_frame.py` | Decode confident candidates and draw them before NMS |
+| `nms_frame.py` | Suppress duplicates and inspect a selected frame |
+
+Run checkpoints with `python detection/<script-name>.py`.
+The decoding and NMS scripts reuse helpers from earlier scripts, so keep these files
+in the `detection/` folder.
+
+See [vision_development_log.md](vision_development_log.md) for milestones, checks and
+remaining work. Day numbers refer to planned learning milestones; several were worked
+on in the same calendar day.
+
+## Current processing choices
+
+- Preserve aspect ratio when resizing to fit 640 x 640 pixels; centre with padding value 114.
+- Convert BGR to RGB, normalize to `[0, 1]`, and provide float16 input of shape `[1, 3, 640, 640]`.
+- Decode float32 output of shape `[1, 25200, 22]`.
+- Use sigmoid(objectness) as confidence and retain values at least `0.5`.
+- Select colour and pattern by the largest logits, using the assignment's category tables.
+- Undo padding and resizing to restore original-image pixel coordinates.
+- Preserve the lightbar endpoint order: upper-left, lower-left, lower-right, upper-right,
+  relative to the plate's orientation.
+- Use class-agnostic NMS with IoU threshold `0.5` on enclosing axis-aligned boxes.
+  The retained prediction keeps its quadrilateral and label.
+
+Checks cover frames 0 and 180 of both clips, plus basic IoU and NMS cases.
+Full-video validation remains pending.
+
+## Remaining assignment work
+
+- Load calibration and select plate dimensions from the predicted pattern.
+- Estimate pose, recover 3D corners in the camera frame and calculate reprojection error.
+- Process every frame and export the required JSONL, including empty frames and failed poses.
+- Add model, calibration and output path arguments to the final program.
+- Check reproducibility from a fresh environment and complete submission validation.
+
+## References and assistance
+
+- Assignment requirements: [English](detection/README.en.md) / [Chinese](detection/README.md).
+- Supplied pretrained model: [RobotPilots / RobotDetectionModel](https://github.com/broalantaps/RobotDetectionModel).
+- Original template overview: [README.en.md](README.en.md).
+
+AI assistance was used to develop and explain the learning scripts and documentation.
+The model is pretrained; these scripts perform inference rather than training.
