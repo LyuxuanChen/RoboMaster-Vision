@@ -1,4 +1,24 @@
-# Process both supplied videos by default and export a separate JSONL for each.
+# Process a video selected by command-line arguments and export its detections as JSONL.
+"""
+How to run from the repository root (RoboMaster-Vision):
+If your terminal is inside detection/, run cd .. first.
+
+Small video:
+python detection/process_video.py \
+  --model detection/assets/0526.onnx \
+  --video detection/assets/small.mp4 \
+  --calibration detection/assets/calibration.yaml \
+  --output detection/results/small.jsonl
+
+Large video:
+python detection/process_video.py \
+  --model detection/assets/0526.onnx \
+  --video detection/assets/large.mp4 \
+  --calibration detection/assets/calibration.yaml \
+  --output detection/results/large.jsonl
+
+"""
+
 
 import argparse
 import json
@@ -18,17 +38,6 @@ from pose_framePnP import estimate_pose
 
 # The supplied recordings use a fixed 30 FPS timeline.
 FPS = 30.0
-
-# Default locations are relative to this script, so PyCharm's working directory
-# does not matter when running without parameters.
-DETECTION_DIR = Path(__file__).resolve().parent
-DEFAULT_MODEL = DETECTION_DIR / "assets" / "0526.onnx"
-DEFAULT_VIDEOS = (
-    DETECTION_DIR / "assets" / "small.mp4",
-    DETECTION_DIR / "assets" / "large.mp4",
-)
-DEFAULT_CALIBRATION = DETECTION_DIR / "assets" / "calibration.yaml"
-DEFAULT_OUTPUT_DIR = DETECTION_DIR / "results"
 
 
 def detect_frame(frame, session, camera_matrix, distortion, image_size,
@@ -143,12 +152,12 @@ def process_one_video(video_path, output_path, session, camera_matrix, distortio
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Export both supplied videos, or one video selected with --video."
+        description="Export every frame of a video selected by its input and output paths."
     )
-    parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
-    parser.add_argument("--video", type=Path, help="Select one video instead of the default pair.")
-    parser.add_argument("--calibration", type=Path, default=DEFAULT_CALIBRATION)
-    parser.add_argument("--output", type=Path, help="Output file for a single --video run.")
+    parser.add_argument("--model", type=Path, required=True, help="Path to the ONNX model.")
+    parser.add_argument("--video", type=Path, required=True, help="Path to the video to process.")
+    parser.add_argument("--calibration", type=Path, required=True, help="Path to camera calibration YAML.")
+    parser.add_argument("--output", type=Path, required=True, help="Path to the output JSONL file.")
     parser.add_argument("--confidence-threshold", type=float, default=0.5)
     parser.add_argument("--nms-iou-threshold", type=float, default=0.5)
     parser.add_argument("--max-reprojection-error-px", type=float, default=5.0)
@@ -164,37 +173,23 @@ def main():
         parser.error("--nms-iou-threshold must be between 0 and 1")
     if not np.isfinite(args.max_reprojection_error_px) or args.max_reprojection_error_px <= 0:
         parser.error("--max-reprojection-error-px must be finite and positive")
-    if args.output is not None and args.video is None:
-        parser.error("--output requires --video; omit both to export the default pair")
-
-    # With no video argument, prepare one job for each supplied recording.
-    videos = DEFAULT_VIDEOS if args.video is None else (args.video,)
-    jobs = [
-        (video, args.output if args.output is not None
-         else DEFAULT_OUTPUT_DIR / f"{video.stem}.jsonl")
-        for video in videos
-    ]
-
-    input_paths = (args.model, args.calibration, *videos)
+    input_paths = (args.model, args.calibration, args.video)
     for path in input_paths:
         if not path.is_file():
             raise FileNotFoundError(f"File not found: {path}")
-    for _, output_path in jobs:
-        if any(output_path.resolve() == path.resolve() for path in input_paths):
-            parser.error("Output paths must differ from the input paths")
-        if output_path.exists() and not args.overwrite:
-            parser.error(f"Output already exists: {output_path}; rerun with --overwrite to replace it")
+    if any(args.output.resolve() == path.resolve() for path in input_paths):
+        parser.error("The output path must differ from the input paths")
+    if args.output.exists() and not args.overwrite:
+        parser.error(f"Output already exists: {args.output}; rerun with --overwrite to replace it")
 
     camera_matrix, distortion, image_size = load_calibration(args.calibration)
-    # Share the loaded model across both videos. Frame indices and timestamps
-    # restart at zero inside process_one_video for each recording.
+    # Load the model once and reuse it for every frame of the selected video.
     session = ort.InferenceSession(str(args.model), providers=["CPUExecutionProvider"])
-    for video_path, output_path in jobs:
-        process_one_video(
-            video_path, output_path, session, camera_matrix, distortion, image_size,
-            args.confidence_threshold, args.nms_iou_threshold,
-            args.max_reprojection_error_px, args.overwrite,
-        )
+    process_one_video(
+        args.video, args.output, session, camera_matrix, distortion, image_size,
+        args.confidence_threshold, args.nms_iou_threshold,
+        args.max_reprojection_error_px, args.overwrite,
+    )
 
 
 if __name__ == "__main__":
