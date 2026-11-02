@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 
 
-video_path = Path(__file__).resolve().parent / "assets" / "small.mp4"
+video_path = Path(__file__).resolve().parent.parent / "assets" / "small.mp4"
 
 if not video_path.is_file():
     raise FileNotFoundError(f"Video not found: {video_path}")

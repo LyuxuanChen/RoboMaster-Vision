@@ -7,7 +7,7 @@ import onnxruntime as ort
 
 
 # Locate the model relative to this script.
-model_path = Path(__file__).resolve().parent / "assets" / "0526.onnx"
+model_path = Path(__file__).resolve().parent.parent / "assets" / "0526.onnx"
 
 if not model_path.is_file():
     raise FileNotFoundError(f"Model file not found: {model_path}")
