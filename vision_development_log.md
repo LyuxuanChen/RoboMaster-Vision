@@ -128,3 +128,10 @@ Understanding:
 - At the time of this entry, later scripts and this documentation update await review and commit.
 - Keep commits for video/inference, decoding and NMS separate where practical to show the
   development sequence. Review selected files in PyCharm before committing.
+
+## Day 5 — Camera calibration inspection
+
+- Added inspect_calibration.py to load calibration.yaml.
+- Inspected the camera matrix, focal lengths, principal point and distortion coefficients.
+- Confirmed that calibration describes the original 1440 × 1080 images.
+- Next: define physical plate corners and estimate 3D pose using PnP.
