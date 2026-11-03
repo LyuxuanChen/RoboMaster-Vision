@@ -2,7 +2,7 @@
 
 Selected route: armour detection and pose estimation, implemented in Python.
 
-Updated: 2026-10-31. Day numbers refer to the seven planned learning milestones,
+Updated: 2026-11-03. Day numbers refer to the seven planned learning milestones,
 not separate calendar dates. These entries record the state at each checkpoint.
 AI assistance was used for implementation and explanations; verification is recorded below.
 
@@ -112,26 +112,89 @@ Understanding:
   is still used for drawing and will be used for PnP.
 - Each run currently inspects one selected frame.
 
-## Remaining milestones
+## Day 5 — Camera calibration and PnP pose estimation
 
-- Continue reviewing representative frames from both clips and document threshold changes.
-- Day 5: load calibration, select physical dimensions from the predicted pattern, estimate
-  pose with PnP, recover 3D corners and check reprojection error.
-- Day 6: process all frames of both videos and export the required JSONL, including empty
-  detections and failed-pose handling.
-- Day 7: verify the complete workflow from a fresh environment and finish submission documentation.
+Completed:
+
+- Added `detection/inspect_calibration.py` to load `calibration.yaml`.
+- Inspected focal lengths, principal point and distortion coefficients; confirmed that
+  calibration describes the original 1440 x 1080 images.
+- Implemented pose estimation in the module now named `detection/pose_framePnP.py`.
+- Selected physical dimensions from the predicted pattern: `1` and `base_big` use
+  0.230 x 0.056 m; the other defined patterns use 0.135 x 0.056 m.
+- Used `SOLVEPNP_IPPE` with restored original-image corners, preserving corner order.
+- Compared candidate poses, excluding non-finite solutions and corners behind the camera,
+  then selected the pose with the lowest reprojection RMS error.
+- Transformed each physical corner using rotation and translation to obtain camera-relative
+  3D coordinates in metres: +X right, +Y down, +Z forward.
+
+Verified and understood:
+
+- The translation vector describes the plate centre; each corner needs its own `R * P + t`.
+- Reprojection RMS is `sqrt(sum(squared Euclidean corner errors) / 4)` in original pixels.
+- The default 5-pixel quality cutoff rejects questionable poses. A rejected pose retains
+  its 2D detection with both 3D corners and reprojection error set to `null`.
+- A small reprojection error measures agreement with detected corners; it does not prove
+  correct classification, physical dimensions or real-world distance accuracy.
+
+## Day 6 — Full-video processing and JSONL export
+
+Completed:
+
+- Added the final executable, now named `detection/run_video_detection.py`.
+- Reused preprocessing, decoding, NMS, calibration and PnP helpers across all frames.
+- Required `--model`, `--video`, `--calibration` and `--output` arguments so paths are
+  supplied by the caller. One invocation processes one video; run twice for both clips.
+- Exported one JSON object per frame, including empty detections and retained failed poses.
+- Used `frame_index / 30` timestamps, starting at zero separately for each clip.
+- Wrote results through a temporary file, replacing the destination only after successful
+  processing. Reruns overwrite by default; `--no-overwrite` protects an existing result.
+- Moved the standalone model, video and preprocessing checks into
+  `detection/validation_debug/`. Earlier entries record their original locations.
+- Kept shared modules in `detection/`; importing them does not run their demonstration code.
+
+Verified from the generated JSONL files:
+
+| Video | Frame records | Detections across all frames | Empty frames | Rejected poses retained |
+| --- | ---: | ---: | ---: | ---: |
+| `small.mp4` | 360 | 395 | 162 | 0 |
+| `large.mp4` | 360 | 150 | 260 | 3 |
+
+- Checked frame order, timestamps, required fields, valid labels, finite coordinates,
+  positive depths for exported poses and physical distances between the 3D corners.
+- Both files have frame indices 0 through 359. JSON output does not allow NaN or Infinity.
+- Detection totals count predictions across frames, not unique tracked plates.
+
+## Day 7 — Documentation and final review (in progress)
+
+Completed:
+
+- Added `IMPLEMENTATION.md` as a separate guide, preserving the original assignment READMEs.
+- Documented repository structure, each script's role, the processing pipeline, environment
+  setup, terminal/PyCharm run instructions, output format and verification limits.
+- Ordered the guide as repository structure, script descriptions, pipeline and full run
+  instructions, followed by output and checks.
+- Compared local results with another implementation on 2026-11-03, as recorded below.
+
+## Remaining work
+
+- Reproduce the documented workflow in a fresh environment using `requirements.txt`.
+- Review more representative frames from both clips for missed plates, duplicate detections,
+  corner placement, unstable labels and questionable geometry.
+- Review and document any threshold changes; the current confidence/NMS thresholds are
+  0.5 and the pose quality cutoff is 5 pixels, without ground-truth optimization.
+- Finish submission review against the original requirements. Day 7 remains in progress.
+- A direct detection-by-detection comparison would require the other author's JSONL files.
 
 ## Git checkpoints
 
-- Day 1 setup and model inspection were committed and pushed as `2bcd17b`.
-- The development log was moved to the repository root in `3c51147`.
-- At the time of this entry, later scripts and this documentation update await review and commit.
-- Keep commits for video/inference, decoding and NMS separate where practical to show the
-  development sequence. Review selected files in PyCharm before committing.
-
-## Day 5 — Camera calibration inspection
-
-- Added inspect_calibration.py to load calibration.yaml.
-- Inspected the camera matrix, focal lengths, principal point and distortion coefficients.
-- Confirmed that calibration describes the original 1440 × 1080 images.
-- Next: define physical plate corners and estimate 3D pose using PnP.
+- `2bcd17b`: Python environment setup and model inspection.
+- `3c51147`: moved the development log to the repository root.
+- `6cf19dd`: single-frame armour detection and NMS.
+- `3873eb8`: restored the original assignment README.
+- `de987b4`: camera calibration loading and inspection.
+- `318b5cc`: PnP pose estimation and camera-relative 3D corners.
+- `3b9f230`: full-video JSON export and separation of validation scripts.
+- `de20e37`: command-line input and output paths.
+- `da7bef6`: renamed the final executable.
+- `4794650`: implementation structure and run guide.
