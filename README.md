@@ -1,3 +1,27 @@
+# 我的实现：视觉检测路线
+
+我选择了**视觉检测路线**，使用 Python 实现装甲板检测与 PnP 位姿估计，
+并将结果导出为 JSONL 文件。
+
+- [IMPLEMENTATION.md](IMPLEMENTATION.md)：介绍仓库结构、各脚本的作用、处理流程及运行方法。
+- [detection/run_video_detection.py](detection/run_video_detection.py)：最终运行入口，
+  用于处理视频并导出检测结果和三维角点。
+- [vision_development_log.md](vision_development_log.md)：记录开发里程碑、验证结果及待完成事项。
+
+# My implementation — vision detection path
+
+I chose the **vision detection path** and implemented armour detection and PnP pose
+estimation in Python, exporting the results as JSONL.
+
+- [IMPLEMENTATION.md](IMPLEMENTATION.md): repository structure, each script's role,
+  processing pipeline and instructions for running the program.
+- [detection/run_video_detection.py](detection/run_video_detection.py): final executable
+  for processing a video and exporting detections and 3D corners.
+- [vision_development_log.md](vision_development_log.md): development milestones,
+  verification results and remaining work.
+
+---
+
 # lyf 的第三次求助
 
 [中文](README.md) · [English](README.en.md)
