@@ -1,7 +1,11 @@
 # 我的实现：视觉检测路线
+名字：陈吕轩
+邮箱：u3669607@connect.hku.hk
+微信号: al333333x
 
 我选择了**视觉检测路线**，使用 Python 实现装甲板检测与 PnP 位姿估计，
 并将结果导出为 JSONL 文件。
+
 
 - [IMPLEMENTATION.md](IMPLEMENTATION.md)：介绍仓库结构、各脚本的作用、处理流程及运行方法。
 - [detection/run_video_detection.py](detection/run_video_detection.py)：最终运行入口，
