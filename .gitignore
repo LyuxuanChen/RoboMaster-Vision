@@ -10,3 +10,6 @@ target
 .venv/
 __pycache__/
 *.pyc
+# Original assignment instructions retained only on this computer
+/assignment_instruction.md
+/assignment_instruction.en.md
